@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Dashboard - BeyondChats",
+  title: "Dashboard - NotebookLM",
   description: "Your AI-powered notebook dashboard",
 };
 

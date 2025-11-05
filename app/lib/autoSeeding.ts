@@ -42,7 +42,7 @@ export async function seedNewUser(userId: string): Promise<SeedingResult> {
       .insert({
         user_id: userId,
         title: 'KEPH 107 - Welcome Collection',
-        description: 'Sample educational documents to get you started with StudyChat',
+        description: 'Sample educational documents to get you started with NotebookLM.',
         is_featured: true
       })
       .select()

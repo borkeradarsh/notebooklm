@@ -11,6 +11,10 @@ import dynamic from 'next/dynamic';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 
+// Import react-pdf CSS for text and annotation layers
+import 'react-pdf/dist/Page/AnnotationLayer.css';
+import 'react-pdf/dist/Page/TextLayer.css';
+
 // Dynamically import react-pdf components to avoid SSR issues
 const Document = dynamic(() => import('react-pdf').then(mod => ({ default: mod.Document })), {
   ssr: false,
@@ -992,17 +996,6 @@ export default function NotebookPage({ params }: { params: Promise<{ id: string 
     );
   };
 
-  // Select all or deselect all documents
-  const toggleSelectAll = () => {
-    if (selectedDocuments.length === documents.length) {
-      // If all are selected, deselect all
-      setSelectedDocuments([]);
-    } else {
-      // Otherwise, select all
-      setSelectedDocuments(documents.map(doc => doc.id));
-    }
-  };
-
   // Handle PDF opening with proper authentication
   const handlePdfOpen = async (doc: Document) => {
     try {
@@ -1065,6 +1058,18 @@ export default function NotebookPage({ params }: { params: Promise<{ id: string 
       }
     };
   }, [pdfBlobUrl]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+          className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full"
+        />
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -1250,53 +1255,6 @@ export default function NotebookPage({ params }: { params: Promise<{ id: string 
                 </motion.div>
               )}
               
-              {/* Action buttons container */}
-              <div className="flex items-center gap-2">
-                {/* Select All Button - Only show when there are documents */}
-                {documents.length > 0 && (
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={toggleSelectAll}
-                    className={`transition-all duration-300 rounded-xl border-2 text-xs font-medium ${
-                      selectedDocuments.length === documents.length
-                        ? 'bg-blue-500/20 border-blue-400/50 text-blue-300 hover:bg-blue-500/30'
-                        : 'bg-slate-700/30 border-slate-600/50 text-slate-400 hover:bg-slate-600/40 hover:border-slate-500'
-                    } ${
-                      isXlSidebarOpen 
-                        ? 'px-3 py-1.5' 
-                        : 'xl:px-2 xl:py-1'
-                    }`}
-                    title={selectedDocuments.length === documents.length ? 'Deselect all documents' : 'Select all documents for AI chat'}
-                  >
-                    <AnimatePresence>
-                      {(isXlSidebarOpen || window.innerWidth < 1280) && (
-                        <motion.span
-                          initial={{ opacity: 0, width: 0 }}
-                          animate={{ opacity: 1, width: 'auto' }}
-                          exit={{ opacity: 0, width: 0 }}
-                        >
-                          {selectedDocuments.length === documents.length ? 'Deselect All' : 'Select All'}
-                        </motion.span>
-                      )}
-                    </AnimatePresence>
-                    {!isXlSidebarOpen && (
-                      <div className={`xl:w-3 xl:h-3 rounded border transition-all duration-200 ${
-                        selectedDocuments.length === documents.length
-                          ? 'bg-blue-500 border-blue-400'
-                          : 'bg-gray-700 border-gray-600'
-                      }`}>
-                        {selectedDocuments.length === documents.length && (
-                          <svg className="w-full h-full text-white" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                          </svg>
-                        )}
-                      </div>
-                    )}
-                  </motion.button>
-                )}
-              
-              {/* Upload Button */}
               <motion.button
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
@@ -1311,7 +1269,7 @@ export default function NotebookPage({ params }: { params: Promise<{ id: string 
               >
                 <Upload className={`${!isXlSidebarOpen ? 'xl:w-4 xl:h-4' : 'w-4 h-4'}`} />
               </motion.button>
-              </div>
+            </div>
             
             {/* Hidden file input */}
             <input
@@ -2602,10 +2560,9 @@ export default function NotebookPage({ params }: { params: Promise<{ id: string 
               </div>
             </div>
           )}
+          </div>
         </div>
       </div>
-    </div>
-    </div>
     </div>
   );
 }

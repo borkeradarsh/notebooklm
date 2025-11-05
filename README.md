@@ -1,14 +1,12 @@
-# StudyChat Notebook 📚
+# NotebookLM 📚
 
-AI-powered document learning platform that transforms how you interact with your PDFs. Upload, organize, and chat with your documents using advanced AI technology.
-
-### 🛠️ Developer Experience
+AI-powered document manage### 🛠️ Developer Experience
 - **🌱 Automatic Seeding**: New users get pre-loaded KEPH 107 educational content with document chunks and embeddings
 - **🔒 Type Safety**: Full TypeScript implementation with strict type checking
 - **🏗️ Modern Architecture**: Built with Next.js 15 App Router and latest React patterns
 - **🚀 Production Ready**: Optimized for deployment with proper error handling and monitoring
 - **👤 Profile Management**: Automatic user profile creation with Google OAuth integration
-- **🔐 Row Level Security**: Comprehensive database security with Supabase RLS policies
+- **🔐 Row Level Security**: Comprehensive database security with Supabase RLS policiesplatform that transforms how you interact with your PDFs. Upload, organize, and chat with your documents using advanced AI technology.
 
 <div align="center">
 
@@ -18,13 +16,13 @@ AI-powered document learning platform that transforms how you interact with your
 [![Google AI](https://img.shields.io/badge/Google_AI-Gemini_2.0-orange?logo=google)](https://ai.google.dev/)
 [![Vercel](https://img.shields.io/badge/Deployed_on-Vercel-black?logo=vercel)](https://vercel.com/)
 
-[🚀 Live Demo](https://studychat-notebook.vercel.app/) · [📖 Documentation](#-quick-start) · [🐛 Report Bug](https://github.com/yourusername/studychat-notebook/issues) · [✨ Request Feature](https://github.com/yourusername/studychat-notebook/issues)
+[🚀 Live Demo](https://notebooklm-adarshborker.vercel.app/) · [📖 Documentation](#-quick-start) ·
 
 </div>
 
-## 🎯 What Makes StudyChat Special?
+## 🎯 What Makes NotebookLM Special?
 
-StudyChat Notebook revolutionizes document interaction by combining intelligent AI with a beautifully crafted user experience. Whether you're a student, researcher, or professional, transform your PDF documents into interactive knowledge bases.
+NotebookLM revolutionizes document interaction by combining intelligent AI with a beautifully crafted user experience. Whether you're a student, researcher, or professional, transform your PDF documents into interactive knowledge bases.
 
 ### 🌟 Key Highlights
 
@@ -117,8 +115,8 @@ Before you begin, ensure you have:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/studychat-notebook.git
-cd studychat-notebook
+git clone https://github.com/borkeradarsh/notebooklm.git
+cd notebooklm
 
 # Install dependencies
 npm install
@@ -138,7 +136,7 @@ NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 
 # Google AI Configuration  
-GOOGLE_API_KEY=your_google_ai_studio_api_key
+GOOGLE_AI_API_KEY=your_google_ai_studio_api_key
 ```
 
 ### 3. Database Setup
@@ -149,9 +147,6 @@ GOOGLE_API_KEY=your_google_ai_studio_api_key
 3. Run the database setup script in the SQL Editor:
 
 ```sql
--- Enable pgvector extension for vector similarity search
-CREATE EXTENSION IF NOT EXISTS vector;
-
 -- Create profiles table (for user management)
 CREATE TABLE IF NOT EXISTS public.profiles (
   id uuid not null,
@@ -212,8 +207,6 @@ CREATE TABLE documents (
   content_text TEXT,
   status TEXT DEFAULT 'processing',
   file_size INTEGER,
-  storage_path TEXT,
-  page_count INTEGER DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -224,34 +217,7 @@ CREATE TABLE document_chunks (
   document_id UUID REFERENCES documents(id) ON DELETE CASCADE,
   chunk_index INTEGER NOT NULL,
   content TEXT NOT NULL,
-  page_number INTEGER DEFAULT 1,
   embedding VECTOR(768),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Create chat_messages table
-CREATE TABLE chat_messages (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  notebook_id UUID REFERENCES notebooks(id) ON DELETE CASCADE,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  content TEXT NOT NULL,
-  role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Create quiz_attempts table
-CREATE TABLE quiz_attempts (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  notebook_id UUID REFERENCES notebooks(id) ON DELETE CASCADE,
-  document_id UUID REFERENCES documents(id) ON DELETE SET NULL,
-  quiz_topic TEXT NOT NULL,
-  quiz_type TEXT NOT NULL DEFAULT 'mcq',
-  questions JSONB NOT NULL,
-  user_answers JSONB NOT NULL,
-  score INTEGER NOT NULL,
-  total_questions INTEGER NOT NULL,
-  correct_answers INTEGER NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -259,8 +225,6 @@ CREATE TABLE quiz_attempts (
 ALTER TABLE notebooks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE document_chunks ENABLE ROW LEVEL SECURITY;
-ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
-ALTER TABLE quiz_attempts ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policies
 CREATE POLICY "Users can view own notebooks" ON notebooks FOR ALL USING (auth.uid() = user_id);
@@ -268,53 +232,6 @@ CREATE POLICY "Users can view own documents" ON documents FOR ALL USING (auth.ui
 CREATE POLICY "Users can view own document chunks" ON document_chunks FOR ALL USING (
   EXISTS (SELECT 1 FROM documents WHERE documents.id = document_chunks.document_id AND documents.user_id = auth.uid())
 );
-CREATE POLICY "Users can view own chat messages" ON chat_messages FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY "Users can view own quiz attempts" ON quiz_attempts FOR ALL USING (auth.uid() = user_id);
-
--- Create vector similarity search function
-CREATE OR REPLACE FUNCTION search_document_chunks(
-  query_embedding vector(768),
-  match_count int DEFAULT 5,
-  target_document_id uuid DEFAULT NULL
-)
-RETURNS TABLE (
-  id uuid,
-  document_id uuid,
-  content text,
-  page_number int,
-  filename text,
-  similarity float
-)
-LANGUAGE plpgsql
-AS $$
-BEGIN
-  RETURN QUERY
-  SELECT
-    dc.id,
-    dc.document_id,
-    dc.content,
-    dc.page_number,
-    d.filename,
-    1 - (dc.embedding <=> query_embedding) as similarity
-  FROM document_chunks dc
-  JOIN documents d ON dc.document_id = d.id
-  WHERE 
-    CASE 
-      WHEN target_document_id IS NOT NULL THEN dc.document_id = target_document_id
-      ELSE true
-    END
-  ORDER BY dc.embedding <=> query_embedding
-  LIMIT match_count;
-END;
-$$;
-
--- Create indexes for better performance
-CREATE INDEX ON document_chunks USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
-CREATE INDEX ON documents (notebook_id);
-CREATE INDEX ON documents (user_id);
-CREATE INDEX ON chat_messages (notebook_id);
-CREATE INDEX ON quiz_attempts (user_id);
-CREATE INDEX ON quiz_attempts (notebook_id);
 ```
 
 #### Option B: Using Migration Files
@@ -376,7 +293,7 @@ npm start
 ## 🏗️ Architecture & Project Structure
 
 ```
-studychat-notebook/
+NotebookLM-notebook/
 ├── 📁 app/                     # Next.js 15 App Router
 │   ├── 📁 components/          # Reusable UI components
 │   │   ├── 📁 auth/           # Authentication components
@@ -416,11 +333,6 @@ studychat-notebook/
 - **🔒 Type Safety**: Strict TypeScript with comprehensive typing
 - **📱 Responsive Design**: Mobile-first approach with Framer Motion
 
-## �🌟 Deployment Options
-
-### 🚀 Vercel (Recommended)
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/yourusername/studychat-notebook)
 
 1. **Connect Repository**: Link your GitHub repo to Vercel
 2. **Environment Variables**: Add your environment variables in Vercel dashboard:
@@ -446,15 +358,7 @@ Before deploying to production:
 - ✅ **Build Test**: Run `npm run build` locally to verify
 - ✅ **Type Check**: Ensure no TypeScript errors with `npm run type-check`
 
-### 🐳 Docker Deployment
 
-```bash
-# Build Docker image
-docker build -t studychat-notebook .
-
-# Run container
-docker run -p 3000:3000 --env-file .env.local studychat-notebook
-```
 
 ### ☁️ Manual Cloud Deployment
 
@@ -488,7 +392,7 @@ New users get a complete, ready-to-use experience on their first login:
 
 ### � User Experience
 When new users first log in, they see:
-1. **Welcome Message**: "Welcome to BeyondChats! 🎉"
+1. **Welcome Message**: "Welcome to NotebookLM! 🎉"
 2. **Loading Animation**: Elegant progress indicators
 3. **Automatic Setup**: "We're setting up your first notebook with sample documents..."
 4. **Immediate Results**: Ready-to-use notebook with AI chat capability
@@ -529,8 +433,8 @@ We welcome contributions! Here's how to get started:
 
 1. **Fork & Clone**
 ```bash
-git clone https://github.com/YOUR_USERNAME/beyondchats-notebook.git
-cd beyondchats-notebook
+git clone https://github.com/borkeradarsh/notebooklm.git
+cd notebooklm
 ```
 
 2. **Create Feature Branch**
@@ -580,7 +484,7 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 
 ## 🙏 Acknowledgments
 
-- **🏢 BeyondChats**: Built as part of the Full Stack Web Developer assignment
+- **🏢 NotebookLM**: Built as part of the Full Stack Web Developer assignment
 - **🤖 Google AI**: Powered by Gemini 2.0 Flash for document understanding
 - **🛠️ AI Development**: Enhanced with Claude 4 and Gemini 2.5 Pro assistance
 - **🌍 Open Source**: Thanks to the amazing open-source community
@@ -604,9 +508,6 @@ This application is **fully production-ready** with:
 
 ### 🌟 Star this repo if it helped you!
 
-[![GitHub stars](https://img.shields.io/github/stars/borkeradarsh/beyondchats-notebook?style=social)](https://github.com/borkeradarsh/beyondchats-notebook/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/borkeradarsh/beyondchats-notebook?style=social)](https://github.com/borkeradarsh/beyondchats-notebook/network/members)
-
-**🚀 [Live Demo](https://beyondchats-notebook-8jda.vercel.app/)** | **👨‍💻 [Developer](https://github.com/borkeradarsh)** | **📧 [Contact](mailto:your-email@example.com)**
+**🚀 [Live Demo](https://notebooklm-adarshborker.vercel.app/)** | **👨‍💻 [Developer](https://github.com/borkeradarsh)** | **📧 [Contact](mailto:borkeradi07@gmail.com.com)**
 
 </div>

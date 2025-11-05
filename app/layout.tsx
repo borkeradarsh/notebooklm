@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "StudyChat - AI-Powered Learning Platform",
+  title: "NotebookLM - AI-Powered PDF Analysis",
   description: "Upload PDF documents and chat with AI, generate quizzes, and explore content with intelligent citations and explanations.",
 };
 

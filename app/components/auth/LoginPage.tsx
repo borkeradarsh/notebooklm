@@ -35,8 +35,8 @@ export function LoginPage() {
             >
               <Brain className="w-8 h-8 text-white" />
             </motion.div>
-            <h1 className="text-3xl font-bold text-white mb-2">StudyChat</h1>
-            <p className="text-gray-300">Your AI-powered learning companion</p>
+            <h1 className="text-3xl font-bold text-white mb-2">NotebookLM</h1>
+            <p className="text-gray-300">Your AI-powered notebook companion</p>
           </div>
 
           {/* Auth component */}
