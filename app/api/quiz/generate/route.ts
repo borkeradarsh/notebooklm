@@ -59,54 +59,56 @@ export async function POST(request: NextRequest) {
 
     console.log('Available documents:', { availableDocuments, availableDocsError });
 
-    // Use the first document for now (can be enhanced to combine multiple documents)
-    const documentId = documentIds[0];
+    // Use all selected documents for quiz generation
+    const allChunks: Array<{ content: string; filename: string }> = [];
+    
+    for (const documentId of documentIds) {
+      // Get document metadata with user validation
+      const { data: documentData, error: docError } = await supabase
+        .from('documents')
+        .select('filename, notebook_id, user_id')
+        .eq('id', documentId)
+        .eq('user_id', userId)
+        .eq('notebook_id', notebookId)
+        .single();
 
-    // Get document metadata with user validation
-    const { data: documentData, error: docError } = await supabase
-      .from('documents')
-      .select('filename, notebook_id, user_id')
-      .eq('id', documentId)
-      .eq('user_id', userId)
-      .eq('notebook_id', notebookId)
-      .single();
+      if (docError || !documentData) {
+        console.error(`Document fetch error for ${documentId}:`, docError);
+        continue; // Skip this document but continue with others
+      }
 
-    console.log('Document fetch result:', { documentData: !!documentData, docError });
+      // Get document content from chunks table
+      const { data: chunks, error: chunksError } = await supabase
+        .from('document_chunks')
+        .select('content')
+        .eq('document_id', documentId)
+        .order('chunk_index', { ascending: true });
 
-    if (docError || !documentData) {
-      console.error('Document fetch error:', docError);
-      return NextResponse.json({ 
-        error: 'Document not found or access denied.', 
-        debug: { 
-          docError: docError?.message, 
-          documentId, 
-          userId, 
-          notebookId 
-        } 
-      }, { status: 404 });
+      if (!chunksError && chunks && chunks.length > 0) {
+        // Add chunks with document context
+        chunks.forEach(chunk => {
+          allChunks.push({
+            content: chunk.content,
+            filename: documentData.filename
+          });
+        });
+      }
     }
 
-    // Get document content from chunks table
-    const { data: chunks, error: chunksError } = await supabase
-      .from('document_chunks')
-      .select('content')
-      .eq('document_id', documentId)
-      .order('chunk_index', { ascending: true });
-
-    console.log('Chunks fetch result:', { chunksCount: chunks?.length, chunksError });
-
-    if (chunksError || !chunks || chunks.length === 0) {
+    if (allChunks.length === 0) {
       return NextResponse.json({ 
-        error: 'Document content not found or not processed yet.',
+        error: 'No accessible document content found for quiz generation.',
         debug: {
-          chunksError: chunksError?.message,
-          chunksCount: chunks?.length || 0
+          documentIds,
+          userId, 
+          notebookId 
         }
       }, { status: 404 });
     }
 
-    // Combine all chunks to form the complete document content
-    const context = chunks.map(chunk => chunk.content).join('\n\n');
+    // Combine content from all documents
+    const context = allChunks.map(chunk => `Document: ${chunk.filename}\n${chunk.content}`).join('\n\n---\n\n');
+    const documentNames = [...new Set(allChunks.map(chunk => chunk.filename))].join(', ');
     
     // Generate quiz based on requested type
     const quizType = types[0]; // Use first type specified
@@ -133,7 +135,7 @@ export async function POST(request: NextRequest) {
       - "explanation": Brief explanation of the correct answer
       - "difficulty": "easy", "medium", or "hard"
 
-      Document: ${documentData.filename}
+      Documents: ${documentNames}
       ---
       ${context}
       ---

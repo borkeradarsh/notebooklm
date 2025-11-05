@@ -19,38 +19,52 @@ export async function POST(request: NextRequest) {
 
     const { message: question, selectedDocuments } = await request.json();
     
-    const documentId = selectedDocuments && selectedDocuments[0];
-
     if (!question) {
       return NextResponse.json({ error: 'Question is required.' }, { status: 400 });
     }
-    if (!documentId) {
-      return NextResponse.json({ error: 'A selected document is required to provide context.' }, { status: 400 });
+    if (!selectedDocuments || selectedDocuments.length === 0) {
+      return NextResponse.json({ error: 'At least one selected document is required to provide context.' }, { status: 400 });
     }
 
     const embeddingModel = genAI.getGenerativeModel({ model: "text-embedding-004" });
     const embeddingResult = await embeddingModel.embedContent(question);
     const queryEmbedding = embeddingResult.embedding.values;
 
-    const { data: documents, error: rpcError } = await supabase.rpc('search_document_chunks', {
-      query_embedding: queryEmbedding,
-      match_count: 5, // Find the top 5 most relevant chunks
-      target_document_id: documentId,
-    });
-
-    if (rpcError) throw new Error(`Supabase RPC error: ${rpcError.message}`);
-    
-    if (!documents || documents.length === 0) {
-        return NextResponse.json({ answer: "I'm sorry, I couldn't find any relevant information in the selected document to answer your question." });
-    }
-
-    const typedDocuments = documents as Array<{
+    // Search across all selected documents
+    const allDocuments: Array<{
       content: string;
       page_number: number;
       filename: string;
       similarity: number;
-    }>;
-    const context = typedDocuments.map(doc => `Source: ${doc.filename}, Page: ${doc.page_number}\nContent: ${doc.content}`).join('\n\n---\n\n');
+    }> = [];
+
+    for (const documentId of selectedDocuments) {
+      const { data: documents, error: rpcError } = await supabase.rpc('search_document_chunks', {
+        query_embedding: queryEmbedding,
+        match_count: 3, // Get top 3 chunks per document
+        target_document_id: documentId,
+      });
+
+      if (rpcError) {
+        console.error(`RPC error for document ${documentId}:`, rpcError.message);
+        continue;
+      }
+      
+      if (documents && documents.length > 0) {
+        allDocuments.push(...documents);
+      }
+    }
+
+    if (allDocuments.length === 0) {
+        return NextResponse.json({ answer: "I'm sorry, I couldn't find any relevant information in the selected documents to answer your question." });
+    }
+
+    // Sort by similarity and take top 5 overall
+    const topDocuments = allDocuments
+      .sort((a, b) => b.similarity - a.similarity)
+      .slice(0, 5);
+    
+    const context = topDocuments.map(doc => `Source: ${doc.filename}, Page: ${doc.page_number}\nContent: ${doc.content}`).join('\n\n---\n\n');
     
     const prompt = `
       You are a helpful teaching assistant. Answer the user's question based ONLY on the following context.

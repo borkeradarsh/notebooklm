@@ -251,7 +251,7 @@ export default function DashboardPage() {
               <div className="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center">
                 <TrendingUp className="w-5 h-5 text-white" />
               </div>
-              <h1 className="text-xl font-bold text-white">BeyondChats</h1>
+              <h1 className="text-xl font-bold text-white">StudyChat</h1>
             </div>
 
             {/* Right side */}
@@ -320,7 +320,7 @@ export default function DashboardPage() {
                 <div className="w-16 h-16 bg-gradient-to-br from-purple-600 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
                   <FileText className="w-8 h-8 text-white" />
                 </div>
-                <h3 className="text-white font-medium mb-2">Welcome to BeyondChats! 🎉</h3>
+                <h3 className="text-white font-medium mb-2">Welcome to StudyChat! 🎉</h3>
                 <p className="text-gray-400 text-sm mb-4">
                   We&apos;re setting up your first notebook with sample documents...
                 </p>
